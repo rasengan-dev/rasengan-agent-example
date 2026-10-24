@@ -34,6 +34,9 @@ export function PreviewPanel({ className = 'flex' }: { className?: string }) {
           ))}
         </nav>
 
+        {/* The address, reload and device controls only apply to the preview. */}
+        {tab === 'preview' && (
+          <>
         <div className="flex min-w-0 flex-[1_1_220px] items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 font-mono text-xs text-muted">
           <span className={`size-[7px] shrink-0 rounded-full ${status === 'ready' ? 'bg-ok' : status === 'crashed' ? 'bg-err' : 'animate-pulse bg-warn'}`} />
           <a href={previewUrl} target="_blank" rel="noreferrer" className="truncate text-muted no-underline hover:text-fg">
@@ -64,6 +67,8 @@ export function PreviewPanel({ className = 'flex' }: { className?: string }) {
             </button>
           ))}
         </div>
+          </>
+        )}
       </div>
 
       {tab === 'preview' && (
@@ -80,7 +85,7 @@ export function PreviewPanel({ className = 'flex' }: { className?: string }) {
         </div>
       )}
       {tab === 'code' && (
-        <div className="dot-grid isolate flex min-h-0 flex-1 flex-col p-3">
+        <div className="dot-grid flex min-h-0 flex-1 flex-col p-3">
           <CodeEditor />
         </div>
       )}

@@ -1,19 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Blocks,
   Check,
   ChevronRight,
-  ChevronsUpDown,
-  CircleCheck,
   CircleAlert,
+  CircleCheck,
   Copy,
   FileCode2,
   Files,
   Folder,
   FolderOpen,
-  GitBranch,
-  Minus,
-  Search as SearchIcon,
+  Maximize2,
+  Minimize2,
   TerminalSquare,
   X,
 } from 'lucide-react';
@@ -23,14 +20,14 @@ import { highlight, isBinary } from '@/lib/highlight';
 import { useSession } from '@/lib/session';
 
 /**
- * The site's code, in the mini IDE from the Rasengan docs' landing page
- * (docs-v2 `components/home/showcase.tsx`): same chrome, tree, tabs, Shiki
- * theme, terminal and status bar, wired to the real site the agent edits.
+ * The site's code: explorer, tabs, highlighted code and the dev server's
+ * terminal, laid out like the editor on the Rasengan docs' landing page and
+ * drawn with the dashboard's theme. It follows the agent: every file it
+ * writes opens in a tab and reloads.
  */
 
 const cn = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(' ');
 
-const PROJECT_NAME = 'site';
 const DEFAULT_OPEN_FILE = 'src/app/_routes/index.page.tsx';
 
 // ── File tree ────────────────────────────────────────────────
@@ -69,11 +66,11 @@ function sortFoldersFirst(nodes: TreeNode[]): TreeNode[] {
     .map((node) => (node.type === 'folder' ? { ...node, children: sortFoldersFirst(node.children) } : node));
 }
 
-// ── Look & feel ──────────────────────────────────────────────
+// ── File icons ───────────────────────────────────────────────
 
 /** Language label shown in the status bar, from the file extension. */
 function languageOf(name: string | null): string {
-  if (!name) return 'Plain Text';
+  if (!name) return '';
   if (name.endsWith('.tsx')) return 'TypeScript JSX';
   if (name.endsWith('.ts')) return 'TypeScript';
   if (name.endsWith('.json')) return 'JSON';
@@ -136,11 +133,11 @@ function FileIcon({ name, size = 14 }: { name: string; size?: number }) {
     case 'css':
       return <LabelTile size={size} bg="#663399" fg="#fff" label="CSS" />;
     default:
-      return <FileCode2 size={size} aria-hidden="true" className="shrink-0 text-ide-fg/60" />;
+      return <FileCode2 size={size} aria-hidden="true" className="shrink-0 text-faint" />;
   }
 }
 
-// ── File tree ────────────────────────────────────────────────
+// ── Explorer ─────────────────────────────────────────────────
 
 function FileTreeNode({
   node,
@@ -156,7 +153,7 @@ function FileTreeNode({
   onSelectFile: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const paddingLeft = depth * 12 + 12;
+  const paddingLeft = depth * 12 + 10;
 
   if (node.type === 'folder') {
     return (
@@ -166,13 +163,13 @@ function FileTreeNode({
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
           style={{ paddingLeft }}
-          className="flex w-full cursor-pointer items-center gap-1.5 py-[5px] pr-2 text-left text-[12.5px] text-ide-fg/70 transition-colors duration-150 hover:bg-white/[0.04] hover:text-ide-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent-c)]"
+          className="flex w-full items-center gap-1.5 py-[5px] pr-2 text-left text-[12.5px] text-muted transition-colors hover:bg-raised hover:text-fg"
         >
-          <ChevronRight size={12} aria-hidden="true" className={cn('shrink-0 text-ide-fg/40 transition-transform duration-200 ease-out', expanded && 'rotate-90')} />
+          <ChevronRight size={12} aria-hidden="true" className={cn('shrink-0 text-faint transition-transform duration-200', expanded && 'rotate-90')} />
           {expanded ? (
-            <FolderOpen size={14} aria-hidden="true" className="shrink-0 text-[var(--accent-c)]" />
+            <FolderOpen size={14} aria-hidden="true" className="shrink-0 text-accent" />
           ) : (
-            <Folder size={14} aria-hidden="true" className="shrink-0 text-[var(--accent-c)]" />
+            <Folder size={14} aria-hidden="true" className="shrink-0 text-accent" />
           )}
           <span className="truncate">{node.name}</span>
         </button>
@@ -180,7 +177,7 @@ function FileTreeNode({
         {expanded && (
           <div className="relative">
             {/* indent guide */}
-            <span aria-hidden="true" style={{ left: paddingLeft + 5 }} className="absolute inset-y-0 w-px bg-white/[0.06]" />
+            <span aria-hidden="true" style={{ left: paddingLeft + 5 }} className="absolute inset-y-0 w-px bg-line" />
             {node.children.map((child) => (
               <FileTreeNode key={child.path} node={child} depth={depth + 1} activeFile={activeFile} changed={changed} onSelectFile={onSelectFile} />
             ))}
@@ -200,89 +197,16 @@ function FileTreeNode({
       aria-current={isActive}
       style={{ paddingLeft: paddingLeft + 14 }}
       className={cn(
-        'relative flex w-full cursor-pointer items-center gap-1.5 py-[5px] pr-2 text-left font-mono text-[12px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent-c)]',
-        isActive
-          ? 'bg-[color-mix(in_oklab,var(--accent-c)_14%,transparent)] text-white'
-          : 'text-ide-fg/65 hover:bg-white/[0.04] hover:text-ide-fg',
+        'relative flex w-full items-center gap-1.5 py-[5px] pr-2 text-left font-mono text-xs transition-colors',
+        isActive ? 'bg-accent/10 text-fg' : 'text-muted hover:bg-raised hover:text-fg',
       )}
     >
-      {isActive && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[2px] bg-[var(--accent-c)]" />}
+      {isActive && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[2px] bg-accent" />}
       <FileIcon name={node.name} />
-      <span className={cn('truncate', isChanged && !isActive && 'text-[#E2C08D]')}>{node.name}</span>
-      {/* Like VS Code's "modified" marker: files the agent wrote this session. */}
-      {isChanged && (
-        <span className="ml-auto pl-2 text-[11px] font-semibold text-[#E2C08D]" title="Changed by the agent">
-          M
-        </span>
-      )}
+      <span className="truncate">{node.name}</span>
+      {/* Files the agent wrote this session. */}
+      {isChanged && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-accent" aria-label="changed by the agent" />}
     </button>
-  );
-}
-
-// ── Window chrome ────────────────────────────────────────────
-
-/** macOS-style window controls. Yellow restores, green maximizes the editor to the full viewport; red is decorative. */
-function TrafficLights({ isMaximized, onMaximize, onRestore }: { isMaximized: boolean; onMaximize: () => void; onRestore: () => void }) {
-  return (
-    <div className="group/lights flex items-center gap-2">
-      <span aria-hidden="true" className="size-3 rounded-full bg-[#FF5F57]" />
-      <button
-        type="button"
-        onClick={onRestore}
-        disabled={!isMaximized}
-        aria-label="Restore editor size"
-        className="flex size-3 cursor-pointer items-center justify-center rounded-full bg-[#FEBC2E] text-transparent group-hover/lights:text-black/70 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-      >
-        <Minus size={8} strokeWidth={3} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        onClick={onMaximize}
-        disabled={isMaximized}
-        aria-label="Maximize editor"
-        className="flex size-3 cursor-pointer items-center justify-center rounded-full bg-[#28C840] text-transparent group-hover/lights:text-black/70 disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-      >
-        <ChevronsUpDown size={8} strokeWidth={3} className="rotate-45" aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
-/** "site › src › app › index.page.tsx" path shown in the title bar. */
-function Breadcrumb({ project, path }: { project: string; path: string | null }) {
-  const parts = [project, ...(path ? path.split('/') : [])];
-  return (
-    <nav aria-label="Current file" className="flex min-w-0 items-center gap-1 font-mono text-[11.5px] text-ide-fg/45">
-      {parts.map((part, i) => {
-        const last = i === parts.length - 1;
-        return (
-          <span key={`${part}-${i}`} className={cn('flex min-w-0 items-center gap-1', !last && 'max-lg:hidden')}>
-            {i > 0 && <ChevronRight size={11} aria-hidden="true" className="shrink-0 text-ide-fg/25" />}
-            <span className={cn('truncate', last && 'text-ide-fg/80')}>{part}</span>
-          </span>
-        );
-      })}
-    </nav>
-  );
-}
-
-/** Where the docs editor switches starter projects: here, the live state of the site's dev server. */
-function DevServerPill({ status }: { status: string }) {
-  const color = status === 'ready' ? '#3FCF8E' : status === 'crashed' ? '#FF6B6B' : '#F5A524';
-  return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-white/[0.06] bg-black/30 p-0.5">
-      <span
-        style={{ backgroundColor: 'color-mix(in oklab, var(--accent-c) 22%, transparent)', borderColor: 'color-mix(in oklab, var(--accent-c) 45%, transparent)' }}
-        className="flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-medium text-white"
-      >
-        <span aria-hidden="true" style={{ backgroundColor: 'var(--accent-c)' }} className="size-1.5 rounded-full" />
-        Rasengan
-      </span>
-      <span className="flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 font-mono text-xs text-ide-fg/55">
-        <span aria-hidden="true" style={{ backgroundColor: color }} className="size-1.5 rounded-full" />
-        rasengan dev · {status}
-      </span>
-    </div>
   );
 }
 
@@ -293,15 +217,18 @@ function EditorTabBar({
   activeFile,
   onSelect,
   onClose,
+  children,
 }: {
   openFiles: string[];
   activeFile: string | null;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  /** Actions shown at the right end of the bar. */
+  children?: React.ReactNode;
 }) {
   return (
-    <div className="flex h-9 shrink-0 items-stretch border-b border-white/[0.06] bg-[#0a0e1b]">
-      <div className="no-scrollbar flex items-stretch overflow-x-auto">
+    <div className="flex h-9 shrink-0 items-stretch border-b border-line bg-bg-soft">
+      <div className="no-scrollbar flex min-w-0 flex-1 items-stretch overflow-x-auto">
         {openFiles.map((path) => {
           const isActive = path === activeFile;
           const name = path.split('/').pop() ?? path;
@@ -309,12 +236,12 @@ function EditorTabBar({
             <div
               key={path}
               className={cn(
-                'group relative flex shrink-0 items-center gap-2 border-r border-white/[0.06] pl-3 pr-1.5 font-mono text-[12px] transition-colors duration-150',
-                isActive ? 'bg-[#0d1324] text-white' : 'text-ide-fg/50 hover:bg-white/[0.03] hover:text-ide-fg/80',
+                'group relative flex shrink-0 items-center gap-2 border-r border-line pr-1.5 pl-3 font-mono text-xs transition-colors',
+                isActive ? 'bg-panel text-fg' : 'text-faint hover:bg-raised hover:text-fg',
               )}
             >
-              {isActive && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-[var(--accent-c)]" />}
-              <button type="button" onClick={() => onSelect(path)} className="flex cursor-pointer items-center gap-2 focus-visible:outline-none focus-visible:underline">
+              {isActive && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-accent" />}
+              <button type="button" onClick={() => onSelect(path)} className="flex items-center gap-2" title={path}>
                 <FileIcon name={name} size={13} />
                 <span>{name}</span>
               </button>
@@ -323,7 +250,7 @@ function EditorTabBar({
                 aria-label={`Close ${name}`}
                 onClick={() => onClose(path)}
                 className={cn(
-                  'cursor-pointer rounded p-0.5 text-ide-fg/40 transition-opacity hover:bg-white/10 hover:text-ide-fg focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/60',
+                  'rounded p-0.5 text-faint transition-opacity hover:bg-line hover:text-fg focus-visible:opacity-100',
                   isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                 )}
               >
@@ -333,7 +260,23 @@ function EditorTabBar({
           );
         })}
       </div>
+      {children && <div className="flex shrink-0 items-center gap-0.5 px-1.5">{children}</div>}
     </div>
+  );
+}
+
+function IconButton({ label, pressed, onClick, children }: { label: string; pressed?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn('rounded-md p-1.5 transition-colors hover:bg-raised hover:text-fg', pressed ? 'text-accent' : 'text-faint')}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -346,14 +289,14 @@ const CODE_CLASSES = cn(
   '[&_code]:font-mono [&_code]:flex [&_code]:flex-col [&_code]:items-start',
   // Line numbers via CSS counters on the `data-line` spans.
   '[&_[data-line-numbers]]:[counter-reset:line]',
-  '[&_[data-line-numbers]_span[data-line]]:w-full [&_[data-line-numbers]_span[data-line]]:pl-0',
+  '[&_[data-line-numbers]_span[data-line]]:w-full',
   '[&_[data-line-numbers]_span[data-line]:hover]:!bg-white/[0.03]',
   '[&_[data-line-numbers]_span[data-line]::before]:mr-5',
   '[&_[data-line-numbers]_span[data-line]::before]:inline-block',
   '[&_[data-line-numbers]_span[data-line]::before]:w-[4ch]',
   '[&_[data-line-numbers]_span[data-line]::before]:select-none',
   '[&_[data-line-numbers]_span[data-line]::before]:text-right',
-  '[&_[data-line-numbers]_span[data-line]::before]:!text-ide-fg/25',
+  '[&_[data-line-numbers]_span[data-line]::before]:!text-faint/60',
   '[&_[data-line-numbers]_span[data-line]::before]:[counter-increment:line]',
   '[&_[data-line-numbers]_span[data-line]::before]:content-[counter(line)]',
 );
@@ -372,12 +315,12 @@ function CodePane({ path, code, html }: { path: string; code: string; html: stri
   };
 
   return (
-    <div className="relative min-h-0 flex-1 bg-[#0d1324]">
+    <div className="relative min-h-0 flex-1 bg-panel">
       <button
         type="button"
         onClick={copy}
-        aria-label="Copy code snippet"
-        className="absolute right-3 bottom-3 z-10 flex cursor-pointer items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-[11px] text-ide-fg/60 backdrop-blur transition-colors duration-150 hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/60 md:top-3 md:bottom-auto"
+        aria-label="Copy the file"
+        className="absolute right-3 bottom-3 z-10 flex md:top-3 md:bottom-auto items-center gap-1.5 rounded-md border border-line-strong bg-raised/80 px-2 py-1 text-[11px] text-muted backdrop-blur transition-colors hover:bg-line hover:text-fg"
       >
         {copied ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
         {copied ? 'Copied' : 'Copy'}
@@ -385,7 +328,7 @@ function CodePane({ path, code, html }: { path: string; code: string; html: stri
 
       {/* Re-keyed per file so switching files fades the new content in. */}
       {html === null ? (
-        <pre key={path} className={cn(CODE_CLASSES, 'pl-4 font-mono whitespace-pre text-ide-fg/80')}>
+        <pre key={path} className={cn(CODE_CLASSES, 'pl-4 font-mono whitespace-pre text-fg-soft')}>
           {code}
         </pre>
       ) : (
@@ -395,10 +338,10 @@ function CodePane({ path, code, html }: { path: string; code: string; html: stri
   );
 }
 
-function EmptyEditorState({ label = 'Select a file in the explorer' }: { label?: string }) {
+function EmptyEditorState({ label = 'Pick a file in the explorer' }: { label?: string }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-[#0d1324] text-sm text-ide-fg/40">
-      <FileCode2 size={30} aria-hidden="true" />
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-panel text-sm text-faint">
+      <FileCode2 size={28} aria-hidden="true" />
       <span>{label}</span>
     </div>
   );
@@ -406,20 +349,16 @@ function EmptyEditorState({ label = 'Select a file in the explorer' }: { label?:
 
 // ── Terminal ─────────────────────────────────────────────────
 
-/** Same palette as the docs terminal: green for ready, blue for URLs, dim for hints; red for errors. */
 function lineClass(line: string): string | undefined {
-  if (/error|failed|✘/i.test(line)) return 'text-red-400';
-  if (/running|ready|listening/i.test(line)) return 'text-emerald-500';
-  if (/^→ (Local|Network)/.test(line)) return 'text-blue-400';
-  if (/^→ |^\$ /.test(line)) return 'text-ide-fg/40';
+  if (/error|failed|✘/i.test(line)) return 'text-err-soft';
+  if (/running|ready|listening/i.test(line)) return 'text-ok-soft';
+  if (/^→ (Local|Network)/.test(line)) return 'text-accent-soft';
+  if (/^→ |^\$ /.test(line)) return 'text-faint';
   return undefined;
 }
 
-/**
- * Bottom panel: the tab strip (only Terminal is live) and the real output of
- * the site's `rasengan dev`, ending on a prompt with a blinking cursor.
- */
-function Terminal() {
+/** The live output of the site's `rasengan dev`. */
+function Terminal({ status }: { status: string }) {
   const [log, setLog] = useState('');
   const box = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -440,23 +379,19 @@ function Terminal() {
     if (box.current && pinned.current) box.current.scrollTop = box.current.scrollHeight;
   }, [log]);
 
-  const lines = useMemo(() => ['$ rasengan dev', ...log.split('\n').slice(-300)], [log]);
+  const lines = useMemo(() => log.split('\n').slice(-300), [log]);
+  const dot = status === 'ready' ? 'bg-ok' : status === 'crashed' ? 'bg-err' : 'animate-pulse bg-warn';
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0e1b]">
-      <div className="flex h-9 shrink-0 items-stretch gap-4 border-b border-white/[0.06] px-4 text-[11px] font-medium tracking-[0.06em] uppercase">
-        <span className="relative flex items-center gap-1.5 text-ide-fg/85">
-          <TerminalSquare size={13} aria-hidden="true" />
-          Terminal
-          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-[2px] bg-[var(--accent-c)]" />
+    <div className="flex h-full flex-col bg-bg-soft">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-4 text-xs">
+        <TerminalSquare size={13} aria-hidden="true" className="text-muted" />
+        <span className="font-medium text-fg">Terminal</span>
+        <span className="font-mono text-faint">rasengan dev</span>
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-faint">
+          <span className={cn('size-1.5 rounded-full', dot)} />
+          {status}
         </span>
-        <span aria-hidden="true" className="flex items-center text-ide-fg/35">
-          Output
-        </span>
-        <span aria-hidden="true" className="flex items-center text-ide-fg/35">
-          Problems
-        </span>
-        <span className="ml-auto flex items-center font-mono tracking-normal normal-case text-ide-fg/35">zsh</span>
       </div>
 
       <div
@@ -465,57 +400,47 @@ function Terminal() {
           const el = box.current;
           if (el) pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
         }}
-        className="flex flex-1 flex-col items-start overflow-auto px-4 py-3 font-mono text-[12px] leading-relaxed text-ide-fg/80 scrollbar-thin"
+        className="flex flex-1 flex-col items-start overflow-auto px-4 py-3 font-mono text-xs leading-relaxed text-muted scrollbar-thin"
       >
         {lines.map((line, i) => (
           <div key={i} className={cn('whitespace-pre', lineClass(line))}>
             {line || ' '}
           </div>
         ))}
-        <div className="mt-1 flex items-center gap-2">
-          <span className="text-[var(--accent-c)]">❯</span>
-          <span aria-hidden="true" className="inline-block h-[14px] w-[7px] bg-ide-fg/70 motion-safe:animate-[editor-caret_1.1s_steps(1)_infinite]" />
-        </div>
       </div>
     </div>
   );
 }
 
-// ── Side rails ───────────────────────────────────────────────
+// ── Status bar ───────────────────────────────────────────────
 
-/** Decorative IDE activity bar (desktop only). */
-function ActivityBar() {
-  return (
-    <div aria-hidden="true" className="flex w-11 shrink-0 flex-col items-center gap-4 border-r border-white/[0.06] bg-[#080b16] pt-3 text-ide-fg/35">
-      <span className="relative text-ide-fg/85">
-        <Files size={18} />
-        <span className="absolute top-0 -left-[13px] h-full w-[2px] bg-[var(--accent-c)]" />
-      </span>
-      <SearchIcon size={18} />
-      <GitBranch size={18} />
-      <Blocks size={18} />
-    </div>
-  );
+/** Problems from the agent's latest check: null before any check. */
+function useProblems(): number | null {
+  const { runs } = useSession();
+  for (let r = runs.length - 1; r >= 0; r--) {
+    const checks = runs[r]!.steps.flatMap((step) => step.tools).filter((tool) => tool.name === 'check' && tool.output !== undefined);
+    const last = checks[checks.length - 1];
+    if (!last) continue;
+    if (last.output!.startsWith('No errors')) return 0;
+    const count = /(\d+) errors?\./.exec(last.output!);
+    return count ? Number(count[1]) : 1;
+  }
+  return null;
 }
 
-/** VS Code-style status bar in the accent color, with the agent's last check result. */
 function StatusBar({ problems, changed, file }: { problems: number | null; changed: number; file: string | null }) {
   return (
-    <div className="flex h-6 shrink-0 items-center gap-4 bg-[color-mix(in_oklab,var(--accent-c)_85%,black)] px-3 font-mono text-[11px] text-white">
-      <span className="flex items-center gap-1">
-        <GitBranch size={12} aria-hidden="true" />
-        main
+    <div className="flex h-7 shrink-0 items-center gap-4 border-t border-line bg-bg-soft px-3 font-mono text-[11px] text-faint">
+      {problems !== null && (
+        <span className={cn('flex items-center gap-1', problems > 0 ? 'text-warn-soft' : 'text-ok-soft')}>
+          {problems > 0 ? <CircleAlert size={12} aria-hidden="true" /> : <CircleCheck size={12} aria-hidden="true" />}
+          {problems} problem{problems === 1 ? '' : 's'}
+        </span>
+      )}
+      <span>
+        {changed} file{changed === 1 ? '' : 's'} changed by the agent
       </span>
-      <span className="flex items-center gap-1 max-sm:hidden">
-        {problems ? <CircleAlert size={12} aria-hidden="true" /> : <CircleCheck size={12} aria-hidden="true" />}
-        {problems === null ? 'not checked' : `${problems} problem${problems === 1 ? '' : 's'}`}
-      </span>
-      <span className="max-sm:hidden">
-        {changed} file{changed === 1 ? '' : 's'} changed
-      </span>
-      <span className="ml-auto max-md:hidden">Spaces: 2</span>
-      <span className="max-md:hidden">UTF-8</span>
-      <span>{languageOf(file)}</span>
+      <span className="ml-auto">{languageOf(file)}</span>
     </div>
   );
 }
@@ -527,24 +452,6 @@ interface Loaded {
   html: string | null;
 }
 
-/** Problems reported by the agent's latest check: null before any check. */
-function useProblems(): number | null {
-  const { runs } = useSession();
-  for (let r = runs.length - 1; r >= 0; r--) {
-    const tools = runs[r]!.steps.flatMap((step) => step.tools).filter((tool) => tool.name === 'check' && tool.output !== undefined);
-    const last = tools[tools.length - 1];
-    if (!last) continue;
-    if (last.output!.startsWith('No errors')) return 0;
-    const count = /(\d+) errors?\./.exec(last.output!);
-    return count ? Number(count[1]) : 1;
-  }
-  return null;
-}
-
-/**
- * The site's code as an always-dark mini IDE. Follows the agent: every file it
- * writes opens in a tab and reloads, and the tree marks it as changed.
- */
 export function CodeEditor() {
   const { server, siteVersion, changedFiles, lastChanged } = useSession();
   const [paths, setPaths] = useState<string[]>([]);
@@ -555,6 +462,7 @@ export function CodeEditor() {
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
   const [mobileTerminalOpen, setMobileTerminalOpen] = useState(false);
   const problems = useProblems();
+  const status = server?.preview ?? 'starting';
 
   useEffect(() => {
     api.files().then((result) => setPaths(result.files), () => setPaths([]));
@@ -592,6 +500,14 @@ export function CodeEditor() {
     };
   }, [activeFile, siteVersion]);
 
+  // Esc leaves full screen.
+  useEffect(() => {
+    if (!isMaximized) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setIsMaximized(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMaximized]);
+
   const closeFile = (path: string) => {
     const index = openFiles.indexOf(path);
     const next = openFiles.filter((p) => p !== path);
@@ -612,126 +528,84 @@ export function CodeEditor() {
     <EmptyEditorState />
   );
 
-  /** Explorer contents, shared by the desktop panel and the mobile drawer. */
   const explorer = (onSelect: (path: string) => void) => (
     <>
-      <div className="px-3 pt-1 pb-2 text-[10.5px] font-semibold tracking-[0.12em] text-ide-fg/40 uppercase">Explorer</div>
-      <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-semibold tracking-[0.04em] text-ide-fg/75 uppercase">
-        <ChevronRight size={12} aria-hidden="true" className="rotate-90 text-ide-fg/40" />
-        {PROJECT_NAME}
-      </div>
+      <div className="px-3 pt-1 pb-2 text-[11px] font-medium tracking-[0.08em] text-faint uppercase">Explorer</div>
       {tree.map((node) => (
         <FileTreeNode key={node.path} node={node} depth={0} activeFile={activeFile} changed={changedFiles} onSelectFile={onSelect} />
       ))}
     </>
   );
 
+  const maximize = (
+    <IconButton label={isMaximized ? 'Exit full screen' : 'Full screen'} onClick={() => setIsMaximized((value) => !value)}>
+      {isMaximized ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />}
+    </IconButton>
+  );
+
   return (
     <div
-      style={{ '--accent-c': 'var(--color-ide-accent)' } as CSSProperties}
-      className={cn('relative flex min-h-0 flex-col', isMaximized ? 'fixed inset-0 z-50' : 'h-full')}
-    >
-      {/* Ambient glow in the accent color, behind the window. */}
-      {!isMaximized && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -inset-x-6 -top-8 bottom-10 -z-10 rounded-[40px] bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklab,var(--accent-c)_35%,transparent),transparent_70%)] opacity-70 blur-2xl"
-        />
+      className={cn(
+        'flex min-h-0 flex-col overflow-hidden border-line-strong bg-panel',
+        isMaximized ? 'fixed inset-0 z-50' : 'h-full rounded-[10px] border shadow-[0_30px_80px_rgba(0,0,0,0.55)]',
       )}
-
-      {/* Gradient hairline border: a 1px padded wrapper with a gradient fill. */}
-      <div
-        className={cn(
-          'flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,color-mix(in_oklab,var(--accent-c)_55%,transparent),rgba(255,255,255,0.06)_35%,rgba(255,255,255,0.04))] p-px shadow-[0_30px_60px_-40px_rgba(15,26,51,0.45)]',
-          !isMaximized && 'rounded-2xl',
-        )}
-      >
-        <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0b1020] text-ide-fg', !isMaximized && 'rounded-[15px]')}>
-          {/* ── Title bar ── */}
-          <div className="flex h-11 shrink-0 items-center gap-4 border-b border-white/[0.06] bg-[#080b16] px-4 pr-2">
-            <TrafficLights isMaximized={isMaximized} onMaximize={() => setIsMaximized(true)} onRestore={() => setIsMaximized(false)} />
-            <div className="hidden min-w-0 flex-1 md:flex">
-              <Breadcrumb project={PROJECT_NAME} path={activeFile} />
-            </div>
-            <div className="ml-auto hidden md:block">
-              <DevServerPill status={server?.preview ?? 'starting'} />
-            </div>
-
-            {/* mobile actions */}
-            <div className="ml-auto flex items-center gap-1 md:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileTreeOpen(true)}
-                aria-label="Open file explorer"
-                className="cursor-pointer rounded-md p-1.5 text-ide-fg/60 transition-colors hover:bg-white/10 hover:text-ide-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/60"
-              >
-                <Files size={16} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileTerminalOpen((prev) => !prev)}
-                aria-label="Toggle terminal"
-                aria-pressed={mobileTerminalOpen}
-                className={cn(
-                  'cursor-pointer rounded-md p-1.5 transition-colors hover:bg-white/10 hover:text-ide-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/60',
-                  mobileTerminalOpen ? 'text-[var(--accent-c)]' : 'text-ide-fg/60',
-                )}
-              >
-                <TerminalSquare size={16} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          {/* ── Desktop / tablet ── */}
-          <div className="hidden min-h-0 flex-1 md:flex">
-            <ActivityBar />
-            <PanelGroup id="code-editor-vertical" direction="vertical" className="flex h-full w-full flex-col">
-              <Panel id="code-editor-main" defaultSize={70} minSize={40}>
-                <PanelGroup id="code-editor" direction="horizontal" className="flex h-full w-full">
-                  <Panel id="code-editor-tree" defaultSize={26} minSize={16} maxSize={40} className="overflow-y-auto bg-[#0a0e1b] py-2 scrollbar-thin">
-                    {explorer(openFile)}
-                  </Panel>
-                  <PanelResizeHandle id="code-editor-handle" className="w-px bg-white/[0.06] transition-colors hover:bg-[var(--accent-c)]" />
-                  <Panel id="code-editor-content" defaultSize={74} className="flex min-w-0 flex-col">
-                    <EditorTabBar openFiles={openFiles} activeFile={activeFile} onSelect={setActiveFile} onClose={closeFile} />
-                    {content}
-                  </Panel>
-                </PanelGroup>
+    >
+      {/* ── Desktop / tablet ── */}
+      <div className="hidden min-h-0 flex-1 md:flex">
+        <PanelGroup id="code-editor-vertical" direction="vertical" className="flex h-full w-full flex-col">
+          <Panel id="code-editor-main" defaultSize={70} minSize={40}>
+            <PanelGroup id="code-editor" direction="horizontal" className="flex h-full w-full">
+              <Panel id="code-editor-tree" defaultSize={26} minSize={16} maxSize={40} className="overflow-y-auto bg-bg-soft py-2 scrollbar-thin">
+                {explorer(openFile)}
               </Panel>
-              <PanelResizeHandle id="code-editor-terminal-handle" className="h-px bg-white/[0.06] transition-colors hover:bg-[var(--accent-c)]" />
-              <Panel id="code-editor-terminal" defaultSize={30} minSize={15} maxSize={60}>
-                <Terminal />
+              <PanelResizeHandle id="code-editor-handle" className="w-px bg-line transition-colors hover:bg-accent" />
+              <Panel id="code-editor-content" defaultSize={74} className="flex min-w-0 flex-col">
+                <EditorTabBar openFiles={openFiles} activeFile={activeFile} onSelect={setActiveFile} onClose={closeFile}>
+                  {maximize}
+                </EditorTabBar>
+                {content}
               </Panel>
             </PanelGroup>
-          </div>
-
-          {/* ── Mobile ── */}
-          <div className="flex min-h-0 flex-1 flex-col md:hidden">
-            <EditorTabBar openFiles={openFiles} activeFile={activeFile} onSelect={setActiveFile} onClose={closeFile} />
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              {content}
-              {mobileTreeOpen && (
-                <>
-                  <div onClick={() => setMobileTreeOpen(false)} className="absolute inset-0 z-20 animate-code-in bg-black/60" />
-                  <div className="absolute top-0 left-0 z-30 h-full w-[78%] max-w-[270px] overflow-y-auto border-r border-white/[0.06] bg-[#0a0e1b] py-2">
-                    {explorer((path) => {
-                      openFile(path);
-                      setMobileTreeOpen(false);
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-            {mobileTerminalOpen && (
-              <div className="h-[200px] shrink-0 border-t border-white/[0.06]">
-                <Terminal />
-              </div>
-            )}
-          </div>
-
-          <StatusBar problems={problems} changed={changedFiles.length} file={activeFile} />
-        </div>
+          </Panel>
+          <PanelResizeHandle id="code-editor-terminal-handle" className="h-px bg-line transition-colors hover:bg-accent" />
+          <Panel id="code-editor-terminal" defaultSize={30} minSize={15} maxSize={60}>
+            <Terminal status={status} />
+          </Panel>
+        </PanelGroup>
       </div>
+
+      {/* ── Mobile ── */}
+      <div className="flex min-h-0 flex-1 flex-col md:hidden">
+        <EditorTabBar openFiles={openFiles} activeFile={activeFile} onSelect={setActiveFile} onClose={closeFile}>
+          <IconButton label="Files" pressed={mobileTreeOpen} onClick={() => setMobileTreeOpen((value) => !value)}>
+            <Files size={15} aria-hidden="true" />
+          </IconButton>
+          <IconButton label="Terminal" pressed={mobileTerminalOpen} onClick={() => setMobileTerminalOpen((value) => !value)}>
+            <TerminalSquare size={15} aria-hidden="true" />
+          </IconButton>
+        </EditorTabBar>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {content}
+          {mobileTreeOpen && (
+            <>
+              <div onClick={() => setMobileTreeOpen(false)} className="absolute inset-0 z-20 animate-code-in bg-black/60" />
+              <div className="absolute top-0 left-0 z-30 h-full w-[78%] max-w-[270px] overflow-y-auto border-r border-line bg-bg-soft py-2">
+                {explorer((path) => {
+                  openFile(path);
+                  setMobileTreeOpen(false);
+                })}
+              </div>
+            </>
+          )}
+        </div>
+        {mobileTerminalOpen && (
+          <div className="h-[200px] shrink-0 border-t border-line">
+            <Terminal status={status} />
+          </div>
+        )}
+      </div>
+
+      <StatusBar problems={problems} changed={changedFiles.length} file={activeFile} />
     </div>
   );
 }
