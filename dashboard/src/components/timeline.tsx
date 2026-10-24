@@ -167,10 +167,16 @@ function describe(tool: ToolView): { tone: Tone; meta: string; note?: string } {
       return { tone: 'neutral', meta: `${output.split('\n').filter(Boolean).length} files` };
     case 'read_file':
       return { tone: 'neutral', meta: `${output.split('\n').length} lines` };
-    case 'edit_file': {
+    case 'edit_file':
+    case 'write_file': {
       const removed = String(tool.input.old_str ?? '').split('\n').length;
-      const added = String(tool.input.new_str ?? '').split('\n').length;
-      return { tone: 'accent', meta: tool.input.old_str ? `+${added} −${removed}` : `new · +${added}` };
+      const added = String(tool.input.new_str ?? tool.input.content ?? '').split('\n').length;
+      const meta = tool.name === 'edit_file' ? `+${added} −${removed}` : `${output.startsWith('Created') ? 'new' : 'rewrite'} · ${added} lines`;
+      // The tool syntax-checks every write: a broken edit shows up on the step that made it.
+      const syntaxError = output.indexOf('syntax error');
+      return syntaxError === -1
+        ? { tone: 'accent', meta }
+        : { tone: 'warn', meta: `${meta} · syntax error`, note: output.slice(output.indexOf('\n\n') + 2) };
     }
     case 'check':
       return output.startsWith('No errors')

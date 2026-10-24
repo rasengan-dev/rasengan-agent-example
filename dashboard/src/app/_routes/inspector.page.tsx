@@ -153,7 +153,7 @@ const Inspector: PageComponent = () => {
             <div className="flex flex-col gap-2 rounded-[10px] border border-line p-3 text-[13px]">
               <span className="text-xs text-faint">Guardrails</span>
               <Row label="Writable paths" value="src/ public/" />
-              <Row label="Auto-fixes used" value={`${fixes} / 2`} />
+              <Row label="Auto-fixes used" value={`${fixes} / 3`} />
               <Row label="Budget" value={`${formatUsd(run.totalCostUsd)} / ${formatUsd(run.budgetUsd)}`} />
             </div>
           </aside>
@@ -174,7 +174,7 @@ function StepDetail({ step, message }: { step: StepView; message: string }) {
       <div className="overflow-hidden rounded-xl border border-line bg-panel">
         <div className="flex items-center gap-2.5 border-b border-line px-3 py-2">
           <Role>system</Role>
-          <span className="truncate text-[13px] text-muted">You build and edit websites for small businesses… (5 tools declared)</span>
+          <span className="truncate text-[13px] text-muted">You build and edit websites for small businesses… (6 tools declared)</span>
         </div>
         <div className="flex items-center gap-2.5 px-3 py-2">
           <Role>user</Role>

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { looksLineNumbered, syntaxCheck } from "../site/diagnostics.ts";
 import { WorkspaceError, resolveEditablePath, resolveReadablePath, type CheckResult, type SiteWorkspace } from "../site/workspace.ts";
 
 /**
@@ -71,18 +72,24 @@ export function createTools(ctx: RunContext, hooks: ToolHooks): AgentTool[] {
     define({
       name: "read_file",
       description:
-        "Read a project file. Lines are prefixed with their number and a tab; the prefix is not part of the file. " +
-        "Read a file before editing it so that old_str matches exactly.",
+        "Read a project file, exactly as it is on disk. Pass start_line and end_line to read part of a long file, " +
+        "for example around a line an error points to. Read a file before editing it so that old_str matches exactly.",
       schema: z.object({
         path: z.string().describe('Path relative to the project root, e.g. "src/app/_routes/index.page.tsx".'),
+        start_line: z.number().int().min(1).optional().describe("First line to read, from 1. Default: 1."),
+        end_line: z.number().int().min(1).optional().describe("Last line to read. Default: the end of the file."),
       }),
-      async run({ path }) {
-        const lines = (await readExisting(ws, resolveReadablePath(path))).split("\n");
-        const numbered = lines
-          .slice(0, MAX_READ_LINES)
-          .map((line, index) => `${String(index + 1).padStart(5)}\t${line}`)
-          .join("\n");
-        return lines.length > MAX_READ_LINES ? `${numbered}\n… ${lines.length - MAX_READ_LINES} more lines` : numbered;
+      async run({ path, start_line, end_line }) {
+        const resolved = resolveReadablePath(path);
+        const lines = (await readExisting(ws, resolved)).split("\n");
+        const start = Math.min(start_line ?? 1, lines.length);
+        const end = Math.min(end_line ?? lines.length, lines.length, start + MAX_READ_LINES - 1);
+        // No per-line numbers: models copy them back into the code. The range goes in a header instead.
+        const header =
+          start === 1 && end === lines.length
+            ? `${resolved} (${lines.length} lines)`
+            : `${resolved} (lines ${start}-${end} of ${lines.length})`;
+        return `${header}\n${lines.slice(start - 1, end).join("\n")}`;
       },
     }),
 
@@ -90,31 +97,49 @@ export function createTools(ctx: RunContext, hooks: ToolHooks): AgentTool[] {
       name: "edit_file",
       description:
         "Replace one exact piece of text in a file under src/ or public/. old_str must appear exactly once, " +
-        "with the same whitespace, and without read_file's line-number prefixes. " +
-        "Use an empty old_str to create a new file with new_str as its content. The preview reloads after each edit.",
+        "with the same whitespace and indentation. Keep edits small: a few lines of old_str, with enough context to be unique. " +
+        "The result reports any syntax error the edit introduced. The preview reloads after each edit.",
       schema: z.object({
         path: z.string().describe("Path relative to the project root."),
-        old_str: z.string().describe("The exact text to replace, or empty to create a new file."),
-        new_str: z.string().describe("The replacement text, or the new file's content."),
+        old_str: z.string().describe("The exact text to replace, copied from the file."),
+        new_str: z.string().describe("The replacement text. Empty to delete old_str."),
       }),
       async run({ path, old_str, new_str }) {
         const resolved = resolveEditablePath(path);
+        if (old_str === "") throw new WorkspaceError("old_str is empty. To create or rewrite a whole file, use write_file.");
+        rejectLineNumbers(new_str);
         return ctx.exclusive(async () => {
-          const content = await ws.readFile(resolved);
-          if (old_str === "") {
-            if (content !== null) throw new WorkspaceError(`${resolved} already exists. Pass the text to replace in old_str.`);
-            await ws.writeFile(resolved, new_str);
-            ctx.filesChanged.add(resolved);
-            return `Created ${resolved}.`;
-          }
-          if (content === null) throw new WorkspaceError(`${resolved} does not exist. Use list_files to see the project files.`);
+          const content = await readExisting(ws, resolved);
           const occurrences = content.split(old_str).length - 1;
           if (occurrences === 0) throw new WorkspaceError(`old_str was not found in ${resolved}. Read the file again and copy the text exactly.`);
           if (occurrences > 1) throw new WorkspaceError(`old_str occurs ${occurrences} times in ${resolved}. Include more surrounding lines.`);
           // A function replacement keeps "$&" and friends in new_str literal.
-          await ws.writeFile(resolved, content.replace(old_str, () => new_str));
+          const updated = content.replace(old_str, () => new_str);
+          await ws.writeFile(resolved, updated);
           ctx.filesChanged.add(resolved);
-          return `Edited ${resolved}.`;
+          return withSyntax(`Edited ${resolved}.`, await syntaxCheck(resolved, updated));
+        });
+      },
+    }),
+
+    define({
+      name: "write_file",
+      description:
+        "Create a file under src/ or public/, or replace a whole file. Use it for new files, and to rewrite a file " +
+        "that is badly broken instead of patching it line by line. content is the complete file. " +
+        "The result reports any syntax error in it.",
+      schema: z.object({
+        path: z.string().describe("Path relative to the project root."),
+        content: z.string().describe("The complete file content."),
+      }),
+      async run({ path, content }) {
+        const resolved = resolveEditablePath(path);
+        rejectLineNumbers(content);
+        return ctx.exclusive(async () => {
+          const existed = (await ws.readFile(resolved)) !== null;
+          await ws.writeFile(resolved, content);
+          ctx.filesChanged.add(resolved);
+          return withSyntax(`${existed ? "Rewrote" : "Created"} ${resolved}.`, await syntaxCheck(resolved, content));
         });
       },
     }),
@@ -191,6 +216,20 @@ export function createTools(ctx: RunContext, hooks: ToolHooks): AgentTool[] {
   }
 
   return definitions;
+}
+
+/** Refuses code that carries a line-number gutter copied from read_file or check output. */
+function rejectLineNumbers(text: string): void {
+  if (looksLineNumbered(text)) {
+    throw new WorkspaceError(
+      'Nothing was written: most lines start with a line number (like "  12 | " or "  12<tab>"). ' +
+        "Those numbers come from error excerpts and are not part of the file. Send the code without them.",
+    );
+  }
+}
+
+function withSyntax(done: string, syntax: string): string {
+  return syntax ? `${done} But the file now has a syntax error. Fix it before anything else:\n\n${syntax}` : `${done} No syntax errors.`;
 }
 
 async function readExisting(ws: SiteWorkspace, path: string): Promise<string> {

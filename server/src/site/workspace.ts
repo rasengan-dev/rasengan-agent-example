@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, posix, relative } from "node:path";
+import { formatDiagnostics, parseTsc } from "./diagnostics.ts";
 
 /** An error the model can act on: tools return its message instead of crashing the run. */
 export class WorkspaceError extends Error {}
@@ -19,7 +20,7 @@ export type PreviewStatus = "starting" | "ready" | "crashed" | "stopped";
 const EDITABLE_ROOTS = ["src", "public"];
 const FORBIDDEN_SEGMENTS = new Set(["node_modules", ".rasengan", "dist", ".git"]);
 const MAX_LOG_CHARS = 200_000;
-const MAX_REPORTED_LINES = 40;
+const MAX_REPORTED_LINES = 15;
 const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
 
 /** Normalizes a model-supplied path and rejects anything outside the site. */
@@ -163,14 +164,21 @@ export class SiteWorkspace {
     if (this.#devServer) await this.#devServerAnswers();
 
     const tsc = await run(join(this.siteDir, "node_modules/.bin/tsc"), ["--noEmit", "-p", "."], this.siteDir);
-    const typecheck = tsc.code === 0 ? "" : lastLines(tsc.output.trim());
+    let typecheck = "";
+    if (tsc.code !== 0) {
+      const diagnostics = parseTsc(tsc.output);
+      typecheck =
+        diagnostics.length > 0
+          ? await formatDiagnostics(diagnostics, (path) => this.readFile(path))
+          : firstLines(tsc.output.trim());
+    }
 
     const fresh = this.#log.slice(this.#logOffset);
     this.#logOffset = this.#log.length;
-    const devServer = lastLines(
-      fresh
-        .split("\n")
-        .filter((line) => /error|failed|✘/i.test(line))
+    // The dev server repeats the same error (and stack) on every request: keep each line once.
+    const devServer = firstLines(
+      [...new Set(fresh.split("\n").map((line) => line.replace(/^\S+Z \[Futon\] /, "").trim()))]
+        .filter((line) => /error|failed|✘/i.test(line) && !/^at /.test(line))
         .join("\n"),
     );
     return { ok: typecheck === "" && devServer === "", typecheck, devServer };
@@ -224,7 +232,10 @@ function run(command: string, args: string[], cwd: string): Promise<{ code: numb
   });
 }
 
-function lastLines(text: string): string {
+/** The first lines: with compiler errors, the root cause comes first. */
+function firstLines(text: string): string {
   const lines = text.split("\n").filter((line) => line.trim() !== "");
-  return lines.slice(-MAX_REPORTED_LINES).join("\n");
+  return lines.length > MAX_REPORTED_LINES
+    ? [...lines.slice(0, MAX_REPORTED_LINES), `… ${lines.length - MAX_REPORTED_LINES} more lines`].join("\n")
+    : lines.join("\n");
 }

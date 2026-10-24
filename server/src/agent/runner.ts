@@ -16,6 +16,8 @@ export interface RunRequest {
 
 /** Earlier exchanges sent back to the model as plain text. */
 const MAX_HISTORY_TURNS = 10;
+/** Times finish sends failing checks back before giving up. */
+const MAX_AUTO_FIXES = 3;
 /** Tool output shown in the dashboard; the model always gets all of it. */
 const MAX_UI_OUTPUT = 4_000;
 
@@ -62,7 +64,7 @@ export class AgentRunner {
 
   async #execute(runId: string, request: RunRequest, signal: AbortSignal): Promise<void> {
     const engine = ENGINES[request.engine];
-    const ctx = new RunContext(this.workspace, 2);
+    const ctx = new RunContext(this.workspace, MAX_AUTO_FIXES);
     let totalCostUsd = 0;
     let lastText = "";
     let failed = false;
