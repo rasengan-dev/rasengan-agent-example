@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Monitor, RotateCw, Smartphone } from 'lucide-react';
-import { api } from '@/lib/api';
+import { CodeEditor } from '@/components/code-editor';
 import { useSession } from '@/lib/session';
 
-type Tab = 'preview' | 'files' | 'logs';
+type Tab = 'preview' | 'code';
 type Device = 'phone' | 'desktop';
 
 export function PreviewPanel({ className = 'flex' }: { className?: string }) {
@@ -18,7 +18,7 @@ export function PreviewPanel({ className = 'flex' }: { className?: string }) {
     <section aria-label="Preview" className={`${className} min-h-0 min-w-0 flex-1 flex-col bg-bg`}>
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">
         <nav aria-label="Panels" className="flex gap-1">
-          {(['preview', 'files', 'logs'] as Tab[]).map((id) => (
+          {(['preview', 'code'] as Tab[]).map((id) => (
             <button
               key={id}
               type="button"
@@ -29,7 +29,7 @@ export function PreviewPanel({ className = 'flex' }: { className?: string }) {
               }`}
             >
               {id}
-              {id === 'files' && changedFiles.length > 0 && <span className="ml-1 font-mono text-[11px] text-accent">{changedFiles.length}</span>}
+              {id === 'code' && changedFiles.length > 0 && <span className="ml-1 font-mono text-[11px] text-accent">{changedFiles.length}</span>}
             </button>
           ))}
         </nav>
@@ -79,75 +79,11 @@ export function PreviewPanel({ className = 'flex' }: { className?: string }) {
           />
         </div>
       )}
-      {tab === 'files' && <FilesTab />}
-      {tab === 'logs' && <LogsTab />}
+      {tab === 'code' && (
+        <div className="dot-grid isolate flex min-h-0 flex-1 flex-col p-3">
+          <CodeEditor />
+        </div>
+      )}
     </section>
-  );
-}
-
-function FilesTab() {
-  const { changedFiles, siteVersion } = useSession();
-  const [files, setFiles] = useState<string[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [content, setContent] = useState('');
-
-  useEffect(() => {
-    api.files().then((result) => setFiles(result.files), () => setFiles([]));
-  }, [siteVersion]);
-
-  useEffect(() => {
-    if (!selected) return;
-    api.file(selected).then((result) => setContent(result.content), () => setContent('(file not found)'));
-  }, [selected, siteVersion]);
-
-  return (
-    <div className="flex min-h-0 flex-1">
-      <ul className="m-0 w-[min(260px,40%)] shrink-0 list-none overflow-auto border-r border-line p-2 scrollbar-thin">
-        {files.map((file) => (
-          <li key={file}>
-            <button
-              type="button"
-              onClick={() => setSelected(file)}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left font-mono text-xs ${
-                selected === file ? 'bg-raised text-fg' : 'text-muted hover:text-fg'
-              }`}
-            >
-              <span className="truncate">{file}</span>
-              {changedFiles.includes(file) && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-accent" aria-label="changed by the agent" />}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <pre className="m-0 min-w-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed text-fg-soft scrollbar-thin">
-        {selected ? content : 'Pick a file. A blue dot marks the ones the agent changed.'}
-      </pre>
-    </div>
-  );
-}
-
-function LogsTab() {
-  const [log, setLog] = useState('');
-  const box = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let alive = true;
-    const refresh = () => api.logs().then((result) => alive && setLog(result.log), () => undefined);
-    refresh();
-    const timer = setInterval(refresh, 2_000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, []);
-
-  // Scroll the log box itself: scrollIntoView would scroll the page too.
-  useEffect(() => {
-    if (box.current) box.current.scrollTop = box.current.scrollHeight;
-  }, [log]);
-
-  return (
-    <div ref={box} className="min-h-0 flex-1 overflow-auto bg-bg-soft p-4 scrollbar-thin">
-      <pre className="m-0 font-mono text-xs leading-relaxed whitespace-pre-wrap text-muted">{log || 'No output yet.'}</pre>
-    </div>
   );
 }

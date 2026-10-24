@@ -97,6 +97,8 @@ interface Session {
   running: boolean;
   /** Paths the agent changed since the last reset. */
   changedFiles: string[];
+  /** The file the agent wrote most recently: the editor opens it. */
+  lastChanged: string | null;
   /** Bumped on every file change, so panels can refresh. */
   siteVersion: number;
   prefs: Prefs;
@@ -123,6 +125,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [runs, setRuns] = useState<RunView[]>([]);
   const [changedFiles, setChangedFiles] = useState<string[]>([]);
+  const [lastChanged, setLastChanged] = useState<string | null>(null);
   const [siteVersion, setSiteVersion] = useState(0);
   const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
 
@@ -151,6 +154,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setRuns((current) => reduce(current, event));
       if (event.type === 'site_changed') {
         setChangedFiles((files) => (files.includes(event.path) ? files : [...files, event.path]));
+        setLastChanged(event.path);
         setSiteVersion((version) => version + 1);
       }
       if (event.type === 'reset') {
@@ -182,6 +186,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       runs,
       running,
       changedFiles,
+      lastChanged,
       siteVersion,
       prefs,
       setPrefs,
@@ -196,7 +201,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await api.reset();
       },
     }),
-    [server, connected, runs, running, changedFiles, siteVersion, prefs, setPrefs],
+    [server, connected, runs, running, changedFiles, lastChanged, siteVersion, prefs, setPrefs],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
