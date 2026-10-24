@@ -1,0 +1,14 @@
+services:
+  agent:
+    build: .
+    ports:
+      - "3000:3000"
+      - "5320:5320"
+      - "6665:6665"
+    environment:
+      # Read from your shell or from .env next to this file.
+      - GEMINI_API_KEY
+      - AGENT_MODELS
+    volumes:
+      # The site's src/ on your machine: open it in your editor and watch the agent's edits land.
+      - ./site-src:/workspace/site/src

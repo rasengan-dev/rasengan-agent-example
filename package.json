@@ -1,0 +1,13 @@
+{
+  "name": "rasengan-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.26.0",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm --filter dashboard build",
+    "start": "pnpm --filter server start",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

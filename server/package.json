@@ -1,0 +1,24 @@
+{
+  "name": "server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../.env --import tsx --watch src/index.ts",
+    "start": "node --env-file-if-exists=../.env --import tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^4.0.104",
+    "@google/genai": "^2.31.0",
+    "@rasenganjs/futon": "^1.0.0",
+    "@rasenganjs/runtime": "^1.0.1",
+    "ai": "^7.0.152",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3"
+  }
+}

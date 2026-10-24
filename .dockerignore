@@ -1,0 +1,7 @@
+**/node_modules
+**/dist
+**/.rasengan
+workspace
+site-src
+.env
+.git
