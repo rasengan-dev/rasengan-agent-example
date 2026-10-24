@@ -83,9 +83,22 @@ body {
   display: none;
 }
 
+/* Keyboard focus ring for buttons and links. */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Form fields show focus with their border instead: text boxes through their container's
+   focus-within border, selects with their own. */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+select:focus-visible {
+  border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
