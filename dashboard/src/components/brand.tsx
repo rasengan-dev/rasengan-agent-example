@@ -1,20 +1,14 @@
 import { Link } from 'rasengan';
 
-export function Spiral({ size = 26 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 26 26" aria-hidden="true">
-      <circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M13 5a8 8 0 0 1 8 8 5 5 0 0 1-5 5 3 3 0 0 1-3-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
+/** The Rasengan.js mark (public/rasengan.svg, the same file as the docs). */
+export function RasenganLogo({ size = 26 }: { size?: number }) {
+  return <img src="/rasengan.svg" alt="" width={size} height={size} className="shrink-0" />;
 }
 
 export function Brand() {
   return (
-    <Link to="/" className="flex items-center gap-2.5 text-fg no-underline">
-      <span className="text-accent">
-        <Spiral />
-      </span>
+    <Link to="/" className="flex items-center gap-2.5 text-fg no-underline" aria-label="rasengan/agent home">
+      <RasenganLogo />
       <span className="font-semibold tracking-tight">
         rasengan<span className="text-faint">/</span>agent
       </span>

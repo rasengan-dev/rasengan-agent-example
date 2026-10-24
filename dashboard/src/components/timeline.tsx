@@ -1,5 +1,5 @@
 import { LoaderCircle } from 'lucide-react';
-import { Spiral } from '@/components/brand';
+import { RasenganLogo } from '@/components/brand';
 import { formatUsd, type RunView, type StepView, type ToolView } from '@/lib/session';
 
 const ENGINE_FILES = { manual: 'engines/manual-loop.ts', 'ai-sdk': 'engines/ai-sdk.ts' } as const;
@@ -25,9 +25,7 @@ export function RunTimeline({ run, live }: { run: RunView; live: boolean }) {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2 text-xs text-faint">
-          <span className="text-accent">
-            <Spiral size={18} />
-          </span>
+          <RasenganLogo size={18} />
           <span className="font-medium text-fg">Agent</span>
           <span className="font-mono">
             · {ENGINE_FILES[run.engine]} · {run.model}
