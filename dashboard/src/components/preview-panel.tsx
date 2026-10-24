@@ -6,7 +6,7 @@ import { useSession } from '@/lib/session';
 type Tab = 'preview' | 'files' | 'logs';
 type Device = 'phone' | 'desktop';
 
-export function PreviewPanel() {
+export function PreviewPanel({ className = 'flex' }: { className?: string }) {
   const { server, changedFiles } = useSession();
   const [tab, setTab] = useState<Tab>('preview');
   const [device, setDevice] = useState<Device>('desktop');
@@ -15,8 +15,8 @@ export function PreviewPanel() {
   const status = server?.preview ?? 'starting';
 
   return (
-    <section aria-label="Preview" className="flex min-h-[60vh] min-w-0 flex-[999_1_560px] flex-col bg-bg">
-      <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">
+    <section aria-label="Preview" className={`${className} min-h-0 min-w-0 flex-1 flex-col bg-bg`}>
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-2.5">
         <nav aria-label="Panels" className="flex gap-1">
           {(['preview', 'files', 'logs'] as Tab[]).map((id) => (
             <button
@@ -67,13 +67,14 @@ export function PreviewPanel() {
       </div>
 
       {tab === 'preview' && (
-        <div className={`dot-grid flex flex-1 justify-center overflow-auto ${device === 'phone' ? 'items-start p-7' : 'p-3'}`}>
+        <div className={`dot-grid flex min-h-0 flex-1 justify-center overflow-auto ${device === 'phone' ? 'items-start p-7' : 'p-3'}`}>
+          {/* The site scrolls inside the iframe; the phone frame is the only thing that can overflow the stage. */}
           <iframe
             key={frameKey}
             title="Site preview"
             src={previewUrl}
-            className={`border border-line-strong bg-white shadow-[0_30px_80px_rgba(0,0,0,0.55)] ${
-              device === 'phone' ? 'h-[720px] w-[360px] rounded-[28px]' : 'h-full min-h-[480px] w-full rounded-[10px]'
+            className={`shrink-0 border border-line-strong bg-white shadow-[0_30px_80px_rgba(0,0,0,0.55)] ${
+              device === 'phone' ? 'h-[720px] max-h-full w-[360px] rounded-[28px]' : 'h-full w-full rounded-[10px]'
             }`}
           />
         </div>
@@ -100,8 +101,8 @@ function FilesTab() {
   }, [selected, siteVersion]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-wrap">
-      <ul className="m-0 max-h-[70vh] min-w-[220px] flex-[1_1_240px] list-none overflow-auto border-r border-line p-2 scrollbar-thin">
+    <div className="flex min-h-0 flex-1">
+      <ul className="m-0 w-[min(260px,40%)] shrink-0 list-none overflow-auto border-r border-line p-2 scrollbar-thin">
         {files.map((file) => (
           <li key={file}>
             <button
@@ -117,7 +118,7 @@ function FilesTab() {
           </li>
         ))}
       </ul>
-      <pre className="m-0 max-h-[70vh] min-w-0 flex-[999_1_400px] overflow-auto p-4 font-mono text-xs leading-relaxed text-fg-soft scrollbar-thin">
+      <pre className="m-0 min-w-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed text-fg-soft scrollbar-thin">
         {selected ? content : 'Pick a file. A blue dot marks the ones the agent changed.'}
       </pre>
     </div>
@@ -126,7 +127,7 @@ function FilesTab() {
 
 function LogsTab() {
   const [log, setLog] = useState('');
-  const bottom = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -139,12 +140,14 @@ function LogsTab() {
     };
   }, []);
 
-  useEffect(() => bottom.current?.scrollIntoView(), [log]);
+  // Scroll the log box itself: scrollIntoView would scroll the page too.
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [log]);
 
   return (
-    <div className="max-h-[75vh] flex-1 overflow-auto bg-bg-soft p-4 scrollbar-thin">
+    <div ref={box} className="min-h-0 flex-1 overflow-auto bg-bg-soft p-4 scrollbar-thin">
       <pre className="m-0 font-mono text-xs leading-relaxed whitespace-pre-wrap text-muted">{log || 'No output yet.'}</pre>
-      <div ref={bottom} />
     </div>
   );
 }

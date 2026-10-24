@@ -32,7 +32,7 @@ export function Composer() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-2.5 border-t border-line px-4 pt-3.5 pb-4">
+    <form onSubmit={onSubmit} className="flex shrink-0 flex-col gap-2.5 border-t border-line px-4 pt-3.5 pb-4">
       <div className="flex flex-wrap gap-1.5">
         {SUGGESTIONS.map((suggestion) => (
           <button

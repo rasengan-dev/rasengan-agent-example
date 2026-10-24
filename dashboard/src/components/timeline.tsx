@@ -173,8 +173,8 @@ function describe(tool: ToolView): { tone: Tone; meta: string; note?: string } {
       const added = String(tool.input.new_str ?? tool.input.content ?? '').split('\n').length;
       const meta = tool.name === 'edit_file' ? `+${added} −${removed}` : `${output.startsWith('Created') ? 'new' : 'rewrite'} · ${added} lines`;
       // The tool syntax-checks every write: a broken edit shows up on the step that made it.
-      const syntaxError = output.indexOf('syntax error');
-      return syntaxError === -1
+      const syntaxError = output.includes('now has a syntax error');
+      return !syntaxError
         ? { tone: 'accent', meta }
         : { tone: 'warn', meta: `${meta} · syntax error`, note: output.slice(output.indexOf('\n\n') + 2) };
     }
