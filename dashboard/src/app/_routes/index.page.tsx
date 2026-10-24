@@ -67,22 +67,22 @@ const Home: PageComponent = () => {
       <main className="mx-auto box-border flex w-full max-w-[860px] flex-1 flex-col gap-7 px-6 pt-16 pb-12">
         <div className="flex flex-col items-center gap-3 text-center">
           <span className="rounded-full border border-line bg-panel px-3 py-1 font-mono text-xs text-muted">DevFest Douala · Yaoundé 2026</span>
-          <h1 className="m-0 text-[clamp(34px,6vw,52px)] leading-[1.05] font-semibold tracking-[-0.035em]">What should the agent build?</h1>
+          <h1 className="m-0 text-[clamp(34px,6vw,52px)] leading-[1.05] font-semibold tracking-[-0.035em]">What are you launching?</h1>
           <p className="m-0 max-w-[560px] text-base leading-relaxed text-muted">
-            Describe a site. A Gemini agent writes it in Rasengan.js, checks its own work, and you watch every step.
+            Describe your product. A Gemini agent builds its landing page in Rasengan.js, checks its own work, and you watch every step.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="flex flex-col rounded-2xl border border-line-strong bg-panel shadow-[0_24px_60px_rgba(0,0,0,0.45)] focus-within:border-accent/60">
           <label htmlFor="brief" className="sr-only">
-            Describe your site
+            Describe your product
           </label>
           <textarea
             id="brief"
             rows={4}
             value={brief}
             onChange={(event) => setBrief(event.target.value)}
-            placeholder="A one-page site for Chez Mama Ngo, the best ndolé in Douala, with a menu and a WhatsApp order button…"
+            placeholder="A landing page for Kora, an app that lets small shops in Douala accept Mobile Money and track their sales. Call to action: join the waitlist…"
             className="resize-none border-0 bg-transparent px-[18px] pt-[18px] pb-2 text-base leading-relaxed text-fg outline-none placeholder:text-faint"
           />
           <div className="flex flex-wrap items-center gap-2.5 border-t border-[#1e2128] px-3 pt-2.5 pb-3">

@@ -2,7 +2,7 @@ import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { ArrowUp, Square } from 'lucide-react';
 import { useSession } from '@/lib/session';
 
-const SUGGESTIONS = ['Change the colors', 'Add opening hours', 'Translate to French'];
+const SUGGESTIONS = ['Add a pricing section', 'Rewrite the hero headline', 'Add an FAQ'];
 
 export function Composer() {
   const { send, stop, running, server } = useSession();

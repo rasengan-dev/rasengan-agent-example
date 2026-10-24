@@ -156,10 +156,10 @@ export function createTools(ctx: RunContext, hooks: ToolHooks): AgentTool[] {
     define({
       name: "finish",
       description:
-        "Call this once the request is done, with the message for the site owner. " +
+        "Call this once the request is done, with the message for the user. " +
         "It checks the project first: if it reports errors, fix them and call finish again.",
       schema: z.object({
-        reply: z.string().describe("What changed on the site, for the owner: one to three short sentences, in their language, no code."),
+        reply: z.string().describe("What changed on the page, for the user: one to three short sentences, in their language, no code."),
       }),
       async run({ reply }) {
         if (ctx.filesChanged.size === 0) {

@@ -174,7 +174,7 @@ function StepDetail({ step, message }: { step: StepView; message: string }) {
       <div className="overflow-hidden rounded-xl border border-line bg-panel">
         <div className="flex items-center gap-2.5 border-b border-line px-3 py-2">
           <Role>system</Role>
-          <span className="truncate text-[13px] text-muted">You build and edit websites for small businesses… (6 tools declared)</span>
+          <span className="truncate text-[13px] text-muted">You design and build landing pages… (6 tools declared)</span>
         </div>
         <div className="flex items-center gap-2.5 px-3 py-2">
           <Role>user</Role>

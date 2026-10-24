@@ -1,6 +1,6 @@
 # rasengan/agent
 
-A small coding agent that builds Rasengan.js sites, made for DevFest Douala and Yaoundé 2026. It shows how an agent works: **a model, a loop, tools and guardrails**. It runs entirely in the Rasengan ecosystem in one Docker container, with no Workers or Durable Objects.
+A small coding agent that builds landing pages (startups, products, launches) in Rasengan.js, made for DevFest Douala and Yaoundé 2026. Its brief is in [`server/src/agent/prompt.ts`](server/src/agent/prompt.ts). It shows how an agent works: **a model, a loop, tools and guardrails**. It runs entirely in the Rasengan ecosystem in one Docker container, with no Workers or Durable Objects.
 
 - **Futon** (`server/`) serves the API, the event stream and the built dashboard.
 - **Rasengan.js** (`dashboard/`) is the dashboard: home, studio (agent timeline and live preview) and loop inspector.
