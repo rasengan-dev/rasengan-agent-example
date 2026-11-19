@@ -1,65 +1,87 @@
-# rasengan/agent
+# rasengan-agent-example
 
-A small coding agent that builds landing pages (startups, products, launches) in Rasengan.js, made for DevFest Douala and Yaoundé 2026. Its brief is in [`server/src/agent/prompt.ts`](server/src/agent/prompt.ts). It shows how an agent works: **a model, a loop, tools and guardrails**. It runs entirely in the Rasengan ecosystem in one Docker container, with no Workers or Durable Objects.
+A small coding agent that builds landing pages in [Rasengan.js](https://rasengan.dev), written to show how an AI agent works from the inside: **a model, a loop, tools and guardrails**.
 
-- **Futon** (`server/`) serves the API, the event stream and the built dashboard.
-- **Rasengan.js** (`dashboard/`) is the dashboard: home, studio (agent timeline and live preview) and loop inspector.
-- **Gemini** (`gemini-3.8-flash` by default) is the model.
-- The agent edits a Rasengan site (`template/`, copied to `workspace/site`) that runs under `rasengan dev`.
+It was built for the talk *Construire un agent IA de A à Z* at DevFest Douala 2026. Everything runs in one Docker container, on the Rasengan ecosystem: [Futon](https://github.com/rasengan-dev/rasenganjs/tree/main/packages/platform/futon) for the server, Rasengan.js for the dashboard and for the site the agent generates, and Gemini as the model.
+
+> **En français.** Un petit agent de code qui construit des landing pages en Rasengan.js, pour comprendre comment fonctionne un agent IA de l’intérieur : un modèle, une boucle, des outils et des garde-fous. La boucle existe en deux versions, écrite à la main et avec le Vercel AI SDK, pour montrer qu’un framework d’agent n’est que cette boucle, déjà écrite.
+
+## What it does
+
+You describe a product ("A landing page for Kora, an app that lets small shops in Douala accept Mobile Money…"). The agent reads the starter site, writes the page section by section, type-checks its own work, fixes what breaks, and finishes with a short message. The dashboard shows every model call, every tool call and the live preview as it happens.
 
 ## Two engines, one contract
 
-| Engine | File | What it shows |
+The point of the project is the loop, so it exists twice:
+
+| Engine | File | |
 |---|---|---|
-| Hand-written loop | [`server/src/agent/engines/manual-loop.ts`](server/src/agent/engines/manual-loop.ts) | The loop by hand on `@google/genai`: call Gemini, run its `functionCalls`, send back `functionResponse`s, repeat |
+| Hand-written loop | [`server/src/agent/engines/manual-loop.ts`](server/src/agent/engines/manual-loop.ts) | About 40 lines on `@google/genai`: call Gemini, run its `functionCalls`, send back `functionResponse`s, repeat |
 | Vercel AI SDK | [`server/src/agent/engines/ai-sdk.ts`](server/src/agent/engines/ai-sdk.ts) | The same agent on `ToolLoopAgent` with `@ai-sdk/google` |
 
-Both implement `AgentEngine` ([`engines/types.ts`](server/src/agent/engines/types.ts)). They share everything else:
+Both implement one interface ([`engines/types.ts`](server/src/agent/engines/types.ts)) and share everything else: the tools, the system prompt, the guardrails and the events. Switch engines from the dashboard header: the timeline looks the same with either one.
 
-- **The tools** ([`agent/tools.ts`](server/src/agent/tools.ts)) are defined once with zod: `list_files`, `read_file`, `edit_file`, `check` (tsc plus dev server errors) and `finish`, which refuses to end while the project has errors.
-- **The guardrails** ([`agent/runner.ts`](server/src/agent/runner.ts)) are the dollar budget, the step limit, the Stop button and up to 2 automatic fixes. Only `src/` and `public/` are writable.
-- **The events** ([`agent/events.ts`](server/src/agent/events.ts)) stream to the dashboard over SSE (`GET /api/events`).
+## Quick start
 
-Switch engines from the dashboard header: the timeline looks the same with either one.
+You need a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
 
-## Run with Docker
+### With Docker
 
 ```bash
-cp .env.example .env   # then set GEMINI_API_KEY
+cp .env.example .env        # then set GEMINI_API_KEY
 docker compose up --build
 ```
 
-Open http://localhost:3000. The site preview is on http://localhost:5320, and its hot reload uses port 6665.
-The site's `src/` is mounted at `./site-src`, so you can open it in your editor during the demo and watch the edits land.
+- Dashboard and API: http://localhost:3000
+- Site preview: http://localhost:5320 (hot reload on port 6665)
+- The site’s `src/` is mounted at `./site-src`: open it in your editor and watch the agent’s edits land.
 
-## Run without Docker
+### Without Docker
+
+Requires Node.js 22 and pnpm 10.
 
 ```bash
 pnpm install
-cp .env.example .env   # then set GEMINI_API_KEY
-pnpm dev               # server on :3000, dashboard on :5300
+cp .env.example .env        # then set GEMINI_API_KEY
+pnpm dev                    # server on :3000, dashboard on :5300
 ```
 
-On first start the server copies `template/` to `workspace/site` and runs `npm install` there.
+On first start, the server copies `template/` to `workspace/site` and runs `npm install` there, then starts `rasengan dev` on port 5320.
+
 To serve the built dashboard from the server, as Docker does: `pnpm build && pnpm start`, then open http://localhost:3000.
 
-## Rasengan 2.0.0 workarounds
+## Project layout
 
-The dashboard is an SPA (`ssr: false`), which hits two issues in rasengan 2.0.0:
+```
+server/              Futon server: API, event stream (SSE), the agent
+  src/agent/
+    engines/         the two loops, behind one interface
+    tools.ts         list_files, read_file, edit_file, write_file, check, finish
+    prompt.ts        the system prompt
+    runner.ts        one run at a time, guardrails, events
+    events.ts        what the dashboard receives
+    pricing.ts       cost estimate per model call
+  src/site/          the site on disk, rasengan dev, type-checking
+dashboard/           Rasengan.js app: home, studio, loop inspector
+template/            the starter site the agent edits
+docs/                how it works
+```
 
-1. **`rasengan build` never exits.** The build writes `dist/`, then the process stays alive after "Detected deployment platform". `dashboard/scripts/build.mjs` runs the same Vite build and exits.
-2. **SPA pages hydrate an empty `#root` (React error 418).** `entries/client/render.js` reads `window.__RASENGAN_SPA_MODE__` when the module loads, but the flag is injected after the entry scripts. `dashboard/src/template.tsx` sets the flag earlier in a classic script.
+## Documentation
 
-## API
+- [Architecture](docs/architecture.md): the pieces and how a request flows through them
+- [The agent loop](docs/agent-loop.md): the loop step by step, in both engines
+- [Tools](docs/tools.md): each tool, and how to design tools an agent can recover with
+- [System prompt and skills](docs/system-prompt-and-skills.md): what the prompt holds, and where skills would fit
+- [Guardrails and cost](docs/guardrails-and-cost.md): budget, limits, sandbox, and why tokens grow each step
+- [Extending the agent](docs/extending.md): add a tool, change the prompt, add a skill or an engine
+- [Configuration and API](docs/configuration.md): environment variables and HTTP routes
+- [Troubleshooting](docs/troubleshooting.md): known issues and their workarounds
 
-| Route | |
-|---|---|
-| `GET /api/state` | engines, models, preview URL and status, whether the API key is set |
-| `GET /api/events` | SSE: the whole session, then live events |
-| `POST /api/runs` | `{ message, engine, model, budgetUsd }` starts a run |
-| `POST /api/runs/stop` | stops the current run |
-| `POST /api/reset` | restores the starter site and clears the conversation |
-| `GET /api/files`, `GET /api/file?path=` | the site's files |
-| `GET /api/logs` | the end of the `rasengan dev` log |
+## Security
 
-⚠️ There is no authentication: anyone who can reach port 3000 can spend your Gemini credits. Keep it on localhost or a trusted network.
+There is no authentication. Anyone who can reach port 3000 can start runs and spend your Gemini credits. Keep it on localhost or a trusted network. The agent can only write under the site’s `src/` and `public/`, and everything it runs stays inside the container.
+
+## License
+
+[MIT](LICENSE) © Dilane Kombou
